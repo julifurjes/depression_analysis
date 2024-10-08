@@ -56,14 +56,14 @@ Once you have the dataset in place and the dependencies installed, you can run t
 
 Example:
 
-```python script_mixedlm_dem.py```
+```python mixed_effects/script_mixedlm_dem.py```
 
 2. Interpreting the Results:
 The results for each time point will be saved in the corresponding output folders as text files or images, containing the model summaries for each depression score.
 
 Example:
 ```
-output_mixed_effects/
+mixed_effects/output/
     mixed_effects_results_score_Score_Depressao_T0.txt
     mixed_effects_results_score_Score_Depressao_T1.txt
     mixed_effects_results_score_Score_Depressao_T3.txt
