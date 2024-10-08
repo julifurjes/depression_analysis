@@ -1,6 +1,6 @@
-# **Depression Analysis Using Mixed-Effects Models**
+# **Depression Analysis Using Different Models**
 
-This project explores the analysis of depression data using **Mixed-Effects Models** (Multilevel Models). The focus is on understanding how demographic factors influence depression scores over time and across subjects, utilizing longitudinal data collected as part of my internship project.
+This project explores the analysis of depression data using different models, such as **Mixed-Effects Models** (Multilevel Models) and **XG Boost Model**. The focus is on understanding how demographic factors influence depression scores over time and across subjects, utilizing longitudinal data collected as part of my internship project.
 
 ## **Table of Contents**
 
@@ -13,12 +13,14 @@ This project explores the analysis of depression data using **Mixed-Effects Mode
 
 ## **Project Overview**
 
-In this project, we apply **Mixed-Effects Models** to a longitudinal dataset to investigate how variables such as gender, education level, and age affect depression scores across different time points. The analysis helps us capture both **within-subject** and **between-subject** variability in depression patterns.
+In this project, I apply these models to a longitudinal dataset to investigate how variables such as gender, education level, and age affect depression scores across different time points. The analysis helps us capture both **within-subject** and **between-subject** variability in depression patterns.
 
 The key steps include:
 - Preparing and cleaning the dataset.
-- Fitting mixed-effects models for three time points of depression scores (`Score_Depressao_T0`, `Score_Depressao_T1`, and `Score_Depressao_T3`).
-- Analyzing fixed effects (demographic variables) and random effects (subject variability).
+- Fitting the models for three time points of depression scores (`Score_Depressao_T0`, `Score_Depressao_T1`, and `Score_Depressao_T3`).
+- Analyzing the outcome:
+    - **Mixed Effects Model**: fixed effects (demographic variables) and random effects (subject variability).
+    - **XG Boost**: feature importance of the demographic and subject ID columns.
 
 > **Note**: Due to **GDPR** (General Data Protection Regulation), the dataset used in this project cannot be publicly uploaded. If you'd like to replicate the analysis, you must add the dataset locally.
 
@@ -26,7 +28,7 @@ The key steps include:
 
 To replicate this project:
 - You need to add the dataset `BD_Rute.xlsx` to the **root folder** of the project.
-- The dataset should follow the structure used in the analysis, with the required demographic and depression score variables (`SEXO`, `Estado_Civil`, `Escolaridade`, `NUTII`, `ID`, `Idade_T0`, `Idade_T1`, `Idade_T3`, `Score_Depressao_T0`, `Score_Depressao_T1`, and `Score_Depressao_T3`).
+- The dataset should follow the structure used in the analysis, with the required variables.
 
 **Dataset Path**:  
 ```/depression_analysis/BD_Rute.xlsx```
@@ -37,7 +39,7 @@ To set up the project environment and install dependencies:
 
 1. Clone the repository:
 ```
-git clone https://github.com/yourusername/depression-analysis.git
+git clone https://github.com/julifurjes/depression-analysis.git
 cd depression-analysis
 ```
 
@@ -50,12 +52,14 @@ cd depression-analysis
 
 Once you have the dataset in place and the dependencies installed, you can run the analysis as follows:
 
-1. Running the Mixed-Effects Model Analysis:
+1. Running the scripts:
+
+Example:
 
 ```python script_mixedlm_dem.py```
 
 2. Interpreting the Results:
-The results for each time point will be saved in the output_mixed_effects folder as text files, containing the model summaries for each depression score.
+The results for each time point will be saved in the corresponding output folders as text files or images, containing the model summaries for each depression score.
 
 Example:
 ```
@@ -69,9 +73,12 @@ output_mixed_effects/
 
 The analysis provides insights into how demographic factors influence depression over time. The results include:
 
+**Mixed Effects Model:**
 - Fixed Effects: Effects of gender, education, and age on depression scores.
 - Random Effects: Variability in depression scores across subjects.
-- Model Convergence Warnings: In some cases, the model may struggle to converge, which can be addressed by simplifying the model.
+
+**XG Boost:**
+- Feature importance: The effect of each variable on the depression scores.
 
 ## **Acknowledgments**
 
