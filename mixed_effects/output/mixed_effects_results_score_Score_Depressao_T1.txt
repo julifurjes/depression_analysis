@@ -1,0 +1,19 @@
+             Mixed Linear Model Regression Results
+================================================================
+Model:            MixedLM Dependent Variable: Score_Depressao_T1
+No. Observations: 2623    Method:             REML              
+No. Groups:       2623    Scale:              0.0245            
+Min. group size:  1       Log-Likelihood:     206.7518          
+Max. group size:  1       Converged:          Yes               
+Mean group size:  1.0                                           
+-----------------------------------------------------------------
+                  Coef.   Std.Err.    z     P>|z|  [0.025  0.975]
+-----------------------------------------------------------------
+const             -0.158     0.022  -7.075  0.000  -0.202  -0.114
+SEXO               0.053     0.009   6.030  0.000   0.036   0.071
+Estado_Civil      -0.004     0.005  -0.917  0.359  -0.014   0.005
+Escolaridade       0.027     0.004   6.799  0.000   0.019   0.035
+NUTII             -0.003     0.002  -1.248  0.212  -0.007   0.002
+Idade_T1           0.002     0.000   4.580  0.000   0.001   0.002
+Group Var          0.025                                         
+================================================================
