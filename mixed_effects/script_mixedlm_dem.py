@@ -1,4 +1,3 @@
-# Import necessary libraries
 import pandas as pd
 import statsmodels.api as sm
 from statsmodels.regression.mixed_linear_model import MixedLM
@@ -52,20 +51,52 @@ class MixedEffectsDepressionModel:
 
         # Output the results
         self.save_results(result, score_column, model_type)
+        self.save_predictions(result, X, y, score_column)
         print(result.summary())
 
     def save_results(self, result, score_column, model_type):
         """
-        Save the mixed-effects model summary and results to a file.
+        Save the mixed-effects model summary and coefficients to files.
 
         :param result: The result object from the fitted model.
         :param score_column: The column name of the target score.
         :param model_type: The type of model (score or difference).
         """
+        # Save the model summary to a text file
         output_file = f'mixed_effects/output/mixed_effects_results_{model_type}_{score_column}.txt'
         with open(output_file, 'w') as f:
             f.write(result.summary().as_text())
         print(f"Results saved to {output_file}")
+
+        # Save the coefficients and standard errors to a CSV file
+        coef_df = pd.DataFrame({
+            'Coefficient': result.params,
+            'Std_Err': result.bse,
+            'Z_value': result.tvalues,
+            'P_value': result.pvalues
+        })
+        coef_df.to_csv(f'mixed_effects/output/mixed_effects_coefficients_{model_type}_{score_column}.csv', index=True)
+        print(f"Coefficients saved to 'mixed_effects/output/mixed_effects_coefficients_{model_type}_{score_column}.csv'")
+
+    def save_predictions(self, result, X, y, score_column):
+        """
+        Save the actual vs predicted results to a CSV file.
+
+        :param result: The result object from the fitted model.
+        :param X: The feature matrix used for predictions.
+        :param y: The actual target values.
+        :param score_column: The column name of the target score.
+        """
+        # Predict the outcomes
+        y_pred = result.predict(X)
+
+        # Save actual vs predicted results to CSV
+        predictions_df = pd.DataFrame({
+            'Actual': y,
+            'Predicted': y_pred
+        })
+        predictions_df.to_csv(f'mixed_effects/output/mixed_effects_predictions_{score_column}.csv', index=False)
+        print(f"Predictions saved to 'mixed_effects/output/mixed_effects_predictions_{score_column}.csv'")
 
 def main():
     # Read data from the "R" sheet of the Excel file "BD_Rute.xlsx"
