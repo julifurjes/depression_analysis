@@ -1,0 +1,23 @@
+                               GEE Regression Results                              
+===================================================================================
+Dep. Variable:             Score_Depressao   No. Observations:                 7871
+Model:                                 GEE   No. clusters:                     2624
+Method:                        Generalized   Min. cluster size:                   2
+                      Estimating Equations   Max. cluster size:                   3
+Family:                           Binomial   Mean cluster size:                 3.0
+Dependence structure:         Exchangeable   Num. iterations:                     7
+Date:                     Fri, 11 Oct 2024   Scale:                           1.000
+Covariance type:                    robust   Time:                         13:33:43
+================================================================================
+                   coef    std err          z      P>|z|      [0.025      0.975]
+--------------------------------------------------------------------------------
+const           -7.0787      0.358    -19.793      0.000      -7.780      -6.378
+SEXO             1.0609      0.152      6.972      0.000       0.763       1.359
+Estado_Civil    -0.0917      0.080     -1.141      0.254      -0.249       0.066
+Escolaridade     0.5449      0.064      8.557      0.000       0.420       0.670
+NUTII           -0.0388      0.037     -1.037      0.300      -0.112       0.035
+Idade            0.0171      0.005      3.657      0.000       0.008       0.026
+==============================================================================
+Skew:                          4.0059   Kurtosis:                      15.2411
+Centered skew:                 1.1977   Centered kurtosis:             12.6696
+==============================================================================

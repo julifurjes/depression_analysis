@@ -1,8 +1,7 @@
-# Import necessary libraries
 import pandas as pd
 import xgboost as xgb
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score, classification_report
+from sklearn.metrics import accuracy_score, classification_report, precision_recall_fscore_support
 import matplotlib.pyplot as plt
 import os
 
@@ -50,25 +49,65 @@ class XGBoostDepressionModel:
 
         # Evaluate the model
         accuracy = accuracy_score(y_test, y_pred)
+        report = classification_report(y_test, y_pred, output_dict=True)
         print(f"Accuracy for {target_column}: {accuracy}")
         print(f"Classification Report for {target_column}:\n", classification_report(y_test, y_pred))
 
+        # Save results and predictions
+        self.save_results(accuracy, report, y_test, y_pred, target_column, model_type)
+
         # Plot feature importance
-        self.plot_feature_importance(xgb_model, target_column, model_type)
+        self.save_feature_importance(xgb_model, target_column, model_type)
 
-    def plot_feature_importance(self, model, target_column, model_type):
+    def save_results(self, accuracy, report, y_test, y_pred, target_column, model_type):
         """
-        Plot and save the feature importance graph for the given model.
+        Save the XGBoost model's evaluation metrics and predictions to CSV.
 
-        :param model: XGBoost model object
+        :param accuracy: The accuracy of the model.
+        :param report: The classification report as a dictionary.
+        :param y_test: The actual labels.
+        :param y_pred: The predicted labels.
+        :param target_column: The column name of the target score or difference.
+        :param model_type: The type of model (score or difference).
+        """
+        # Save metrics (accuracy, precision, recall, f1-score) to a CSV
+        metrics_df = pd.DataFrame(report).transpose()
+        metrics_df['accuracy'] = accuracy  # Add accuracy to all rows
+        metrics_df.to_csv(f'xgboost/output/xgboost_metrics_{model_type}_{target_column}.csv', index=True)
+        print(f"Metrics saved to 'xgboost/output/xgboost_metrics_{model_type}_{target_column}.csv'")
+
+        # Save actual vs predicted results to CSV
+        predictions_df = pd.DataFrame({
+            'Actual': y_test,
+            'Predicted': y_pred
+        })
+        predictions_df.to_csv(f'xgboost/output/xgboost_predictions_{model_type}_{target_column}.csv', index=False)
+        print(f"Predictions saved to 'xgboost/output/xgboost_predictions_{model_type}_{target_column}.csv'")
+
+    def save_feature_importance(self, model, target_column, model_type):
+        """
+        Save the feature importance to a CSV and plot the feature importance graph.
+
+        :param model: XGBoost model object.
         :param target_column: string representing the column name of the target score or difference.
         :param model_type: string indicating whether it's a 'score' or 'difference' model.
         """
+        # Get feature importance scores
+        importance = model.get_booster().get_score(importance_type='weight')
+        importance_df = pd.DataFrame({
+            'Feature': list(importance.keys()),
+            'Importance': list(importance.values())
+        })
+        
+        # Save feature importance to CSV
+        importance_df.to_csv(f'xgboost/output/xgboost_feature_importance_{model_type}_{target_column}.csv', index=False)
+        print(f"Feature importance saved to 'xgboost/output/xgboost_feature_importance_{model_type}_{target_column}.csv'")
+
+        # Plot the feature importance
         xgb.plot_importance(model, importance_type='weight', max_num_features=10)
         plt.title(f'Feature Importance for {target_column} ({model_type} model)')
         plt.savefig(f'xgboost/output/feature_importance_{model_type}_{target_column}.png')
         plt.show()
-
 
 def create_score_differences(data):
     """
