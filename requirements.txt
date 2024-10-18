@@ -5,3 +5,7 @@ scipy
 xgboost
 scikit-learn
 statsmodels
+imbalanced-learn
+numpy
+seaborn
+pymer4
