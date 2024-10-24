@@ -1,0 +1,10 @@
+Performance Metrics for SMOTE-Oversampled Data:
+ROC AUC Score: 0.9805
+Accuracy: 0.8337
+Precision: 0.2179
+Recall: 1.0000
+F1 Score: 0.3578
+Precision-Recall AUC: 0.75919468404162
+Confusion Matrix:
+[[1240  262]
+ [   0   73]]
