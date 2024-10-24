@@ -146,15 +146,15 @@ class DataPreparation():
         # Normalize mixed-type columns
         data = self._normalize_mixed_columns(data)
 
-        # Fill missing values with a placeholder (if necessary)
-        data['ID'] = data['ID'].fillna('Missing')
+        # Add 'Missing' as a valid category to 'ID' if 'ID' is categorical
+        if data['ID'].dtype.name == 'category':
+            data['ID'] = data['ID'].cat.add_categories('Missing')
 
-        # If you want to ensure ID is a string, convert it to string first
-        data['ID'] = data['ID'].astype(str)
-
-        # Now, convert ID to categorical
+        # Fill missing values in 'ID' and ensure it's treated as categorical
+        data['ID'] = data['ID'].fillna('Missing').astype(str)
         data['ID'] = data['ID'].astype('category')
 
+        # Rest of the function processing...
         score_cols = ['Score_Depressao_T0', 'Score_Depressao_T1', 'Score_Depressao_T3']
 
         # Add an extra column where all 3 scores are present
@@ -175,14 +175,13 @@ class DataPreparation():
         repeated_vars = [col[:-3] for col in data.columns if col.endswith(('_T0', '_T1', '_T3'))]
         repeated_vars = list(set(repeated_vars))
 
-        # Reshape repeated variables
         for var in repeated_vars:
             time_cols = [f"{var}_T0", f"{var}_T1", f"{var}_T3"]
             available_time_cols = [col for col in time_cols if col in data.columns]
             if not available_time_cols:
                 continue
             melted = pd.melt(data[['ID'] + available_time_cols], id_vars=['ID'], value_vars=available_time_cols,
-                             var_name='TimeVar', value_name=var)
+                            var_name='TimeVar', value_name=var)
             melted['Time'] = melted['TimeVar'].str.extract(r'T(\d+)').astype(int)
             melted = melted.drop('TimeVar', axis=1)
             data_long = pd.merge(data_long, melted, on=['ID', 'Time'], how='left')
@@ -191,10 +190,41 @@ class DataPreparation():
         threshold = 0  # Where depression score > 0 indicates depression
         data_long['DepressionStatus'] = (data_long['DepressionScore'] > threshold).astype(int)
 
+        # Process categorical variables
+        for col in data_long.select_dtypes(['category', 'object']).columns:
+            data_long.loc[:, col] = data_long[col].astype('category').cat.codes
+
+        # Process datetime columns
+        for col in data_long.select_dtypes(include=[np.datetime64]).columns:
+            data_long.loc[:, col + '_year'] = data_long[col].dt.year
+            data_long.loc[:, col + '_month'] = data_long[col].dt.month
+            data_long.loc[:, col + '_day'] = data_long[col].dt.day
+            data_long = data_long.drop(col, axis=1)
+
+        # Fill missing values
+        data_long = data_long.fillna(0).infer_objects(copy=False)
+
+        # Remove description columns
+        data_long = data_long.loc[:, ~data_long.columns.str.contains('desc', case=False)]
+
+        # Handle 'other' columns
+        outra_columns = data_long.columns[data_long.columns.str.contains('outra', case=False)]
+        for col in outra_columns:
+            data_long.loc[:, col] = data_long[col].notna().astype(int)
+
+        outros_columns = data_long.columns[data_long.columns.str.contains('outros', case=False)]
+        for col in outros_columns:
+            data_long.loc[:, col] = data_long[col].notna().astype(int)
+
+        # Transform score_eq5d and score_eq5d_T2
+        if 'score_eq5d' in data_long.columns:
+            data_long.loc[:, 'score_eq5d'] = data_long['score_eq5d'] + 1
+        if 'score_eq5d_T2' in data_long.columns:
+            data_long.loc[:, 'score_eq5d_T2'] = data_long['score_eq5d_T2'] + 1
+
         return data_long
-    
-    
-    def _standardize_variables(self, X):
+        
+    def standardize_variables(self, X):
         scaler = StandardScaler()
         numeric_cols = X.select_dtypes(include=[np.number]).columns
         X[numeric_cols] = scaler.fit_transform(X[numeric_cols])
@@ -204,45 +234,31 @@ class DataPreparation():
         X = df[fixed_effects]
         y = df['DepressionStatus']
 
-        # Convert categorical variables to numeric codes
-        for col in X.select_dtypes(['category', 'object']).columns:
-            X.loc[:, col] = X[col].astype('category').cat.codes
-
-        # Convert datetime or timestamp columns to numeric by extracting components
-        for col in X.select_dtypes(include=[np.datetime64]).columns:
-            X.loc[:, col + '_year'] = X[col].dt.year
-            X.loc[:, col + '_month'] = X[col].dt.month
-            X.loc[:, col + '_day'] = X[col].dt.day
-            X = X.drop(col, axis=1)  # Drop original timestamp column after extraction
-
-        # Fill missing values and handle future warning for object dtype arrays
-        X = X.fillna(0).infer_objects(copy=False)
-
-        # Remove description columns, as they are not useful for quantitative analysis
-        X = X.loc[:, ~X.columns.str.contains('desc', case=False)]
-
-        # Turn 'other' columns into binary (if there is any or not) for the purpose of the analysis
-        outra_columns = X.columns[X.columns.str.contains('outra', case=False)]
-        for col in outra_columns:
-            X.loc[:, col] = X[col].notna().astype(int)
-
-        # Turn 'medicine descriptions' columns into binary (if there is any or not) for the purpose of the analysis
-        outros_columns = X.columns[X.columns.str.contains('outros', case=False)]
-        for col in outros_columns:
-            X.loc[:, col] = X[col].notna().astype(int)
-
-        # Transform score_eq5d and score_eq5d_T2 to non-negative by adding 1
-        if 'score_eq5d' in X.columns:
-            X.loc[:, 'score_eq5d'] = X['score_eq5d'] + 1
-        if 'score_eq5d_T2' in X.columns:
-            X.loc[:, 'score_eq5d_T2'] = X['score_eq5d_T2'] + 1
-
         # Standardize variables
-        X = self._standardize_variables(X)
+        X = self.standardize_variables(X)
 
         # Use mutual information for feature selection
         selector = SelectKBest(mutual_info_classif, k=20)
         selector.fit(X, y)
         selected_vars = X.columns[selector.get_support()]
+        X_selected = X[selected_vars]
         
-        return selected_vars, X, y
+        return selected_vars, X_selected, y
+    
+    def generate_smote_nc(self, X_train, y_train):
+        """
+        Apply SMOTE-NC to the training data.
+        """
+        from imblearn.over_sampling import SMOTENC
+
+        # Identify categorical feature indices
+        categorical_features = X_train.select_dtypes(include=['object', 'category']).columns
+        categorical_indices = [X_train.columns.get_loc(col) for col in categorical_features]
+
+        # Initialize SMOTE-NC
+        smote_nc = SMOTENC(categorical_features=categorical_indices, random_state=42, n_jobs=-1)
+
+        # Apply SMOTE-NC to training data
+        X_resampled, y_resampled = smote_nc.fit_resample(X_train, y_train)
+
+        return X_resampled, y_resampled

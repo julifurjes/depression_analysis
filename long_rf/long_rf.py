@@ -4,86 +4,54 @@ import os
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report, roc_auc_score, roc_curve
-from sklearn.preprocessing import LabelEncoder
-from sklearn.impute import SimpleImputer
 from sklearn.utils import class_weight
 import matplotlib.pyplot as plt
 from imblearn.ensemble import BalancedRandomForestClassifier
+from sklearn.preprocessing import StandardScaler
+from collections import Counter
+from imblearn.combine import SMOTETomek
 from imblearn.over_sampling import SMOTE
+from sklearn.feature_selection import SelectKBest, mutual_info_classif
+from sklearn.model_selection import StratifiedKFold, cross_val_score
+import sys
+
+# Add the parent directory to the system path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from functions import DataPreparation
 
 class RandomForestLongitudinalModel:
     def __init__(self, data):
         self.data = data
         self.subject_col = 'ID'
-        self.data_long = self.prepare_long_data()
-
-    def process_datetime_columns(self, X):
-        datetime_cols = X.select_dtypes(include=['datetime64']).columns
-        for col in datetime_cols:
-            X[col + '_year'] = X[col].dt.year
-            X[col + '_month'] = X[col].dt.month
-            X[col + '_day'] = X[col].dt.day
-        X = X.drop(columns=datetime_cols)
-        return X
-
-    def prepare_long_data(self):
-        data = self.data.copy()
-        score_cols = ['Score_Depressao_T0', 'Score_Depressao_T1', 'Score_Depressao_T3']
-        data_long = pd.melt(data, id_vars=['ID'], value_vars=score_cols,
-                            var_name='Time', value_name='DepressionScore')
-
-        data_long['Time'] = data_long['Time'].str.extract(r'T(\d+)').astype(int)
-
-        repeated_vars = [col[:-3] for col in data.columns if col.endswith(('_T0', '_T1', '_T3'))]
-        repeated_vars = list(set(repeated_vars))
-
-        for var in repeated_vars:
-            time_cols = [f"{var}_T0", f"{var}_T1", f"{var}_T3"]
-            available_time_cols = [col for col in time_cols if col in data.columns]
-            if not available_time_cols:
-                continue
-            melted = pd.melt(data[['ID'] + available_time_cols], id_vars=['ID'], value_vars=available_time_cols,
-                             var_name='TimeVar', value_name=var)
-            melted['Time'] = melted['TimeVar'].str.extract(r'T(\d+)').astype(int)
-            melted = melted.drop('TimeVar', axis=1)
-            data_long = pd.merge(data_long, melted, on=['ID', 'Time'], how='left')
-
-        time_invariant_vars = [col for col in data.columns if not col.endswith(('_T0', '_T1', '_T3')) and col != 'ID']
-        data_long = pd.merge(data_long, data[['ID'] + time_invariant_vars], on='ID', how='left')
-
-        threshold = 0
-        data_long['DepressionStatus'] = (data_long['DepressionScore'] > threshold).astype(int)
-
-        return data_long
+        self.data_long = DataPreparation().handle_data(self.data)
+        if not os.path.exists('long_rf/output'):
+            os.makedirs('long_rf/output')  # Ensure output directory exists
 
     def preprocess_data(self):
         df = self.data_long.copy()
 
-        # Exclude unnecessary columns, including 'Pontuacao_Depressao' and 'Score_Depressao'
+        # Exclude unnecessary columns
         exclude_cols = ['ID', 'DepressionScore', 'Pontuacao_Depressao', 'Score_Depressao']
         X = df.drop(columns=exclude_cols + ['DepressionStatus'])
 
         y = df['DepressionStatus']
 
+        # Handle missing values (if any) - impute or drop
+        X = X.replace([np.inf, -np.inf], np.nan).fillna(0)
+
+        # Process categorical variables (if not already encoded)
         categorical_cols = X.select_dtypes(include=['object', 'category']).columns
         for col in categorical_cols:
-            X[col] = X[col].astype(str)
-            le = LabelEncoder()
-            X[col] = le.fit_transform(X[col])
+            X[col] = X[col].astype('category').cat.codes
 
-        X = self.process_datetime_columns(X)
+        # Standardize variables
+        X = DataPreparation()._standardize_variables(X)
 
-        imputer = SimpleImputer(strategy='median')
-        X = pd.DataFrame(imputer.fit_transform(X), columns=X.columns)
+        # Variable screening to select top features
+        selected_vars, X, y = DataPreparation().variable_screening(X.columns.tolist(), df)
+        X = X[selected_vars]
 
         return X, y
-
-    def handle_class_imbalance(self, y):
-        class_weights = class_weight.compute_class_weight(class_weight='balanced',
-                                                          classes=np.unique(y),
-                                                          y=y)
-        class_weights_dict = {i: class_weights[i] for i in range(len(class_weights))}
-        return class_weights_dict
 
     def run_random_forest(self, method='balanced_rf'):
         X, y = self.preprocess_data()
@@ -93,6 +61,7 @@ class RandomForestLongitudinalModel:
         if not os.path.exists(method_folder):
             os.makedirs(method_folder)
 
+        # Split the data into training and testing sets
         X_train, X_test, y_train, y_test = train_test_split(
             X, y, stratify=y, test_size=0.2, random_state=42
         )
@@ -120,14 +89,21 @@ class RandomForestLongitudinalModel:
 
         elif method == 'weighted':
             # Default: Original Random Forest with class weights
-            class_weights = self.handle_class_imbalance(y_train)
+            class_weights = class_weight.compute_class_weight(class_weight={0: 1, 1: 30},
+                                                              classes=np.unique(y_train),
+                                                              y=y_train)
+            class_weights_dict = {i: class_weights[i] for i in range(len(class_weights))}
             rf = RandomForestClassifier(
-                n_estimators=100, random_state=42, class_weight=class_weights
+                n_estimators=300, random_state=42, class_weight=class_weights_dict
             )
             rf.fit(X_train, y_train)
 
             y_pred = rf.predict(X_test)
             y_proba = rf.predict_proba(X_test)[:, 1]
+
+            # Adjust threshold to improve recall
+            threshold = 0.3  # Lowering threshold
+            y_pred = (y_proba >= threshold).astype(int)
 
         # Evaluate the model
         print("Classification Report:")
@@ -135,6 +111,10 @@ class RandomForestLongitudinalModel:
 
         roc_auc = roc_auc_score(y_test, y_proba)
         print(f"ROC AUC Score: {roc_auc:.4f}")
+
+        skf = StratifiedKFold(n_splits=4, shuffle=True, random_state=42)
+        scores = cross_val_score(rf, X_train, y_train, cv=skf, scoring='f1')
+        print('F1 cross-validation scores:', scores)
 
         # Plot and save ROC Curve
         self.plot_roc_curve(y_test, y_proba, roc_auc, method_folder)
@@ -160,7 +140,7 @@ class RandomForestLongitudinalModel:
         plt.title('ROC Curve - Random Forest')
         plt.legend(loc='lower right')
         plt.savefig(f'{method_folder}/roc_curve_{roc_auc:.4f}.png')  # Save ROC curve
-        plt.show()
+        plt.close()
 
     def plot_feature_importance(self, feature_importances, method_folder):
         sorted_idx = feature_importances.sort_values(ascending=False)
@@ -173,7 +153,7 @@ class RandomForestLongitudinalModel:
         plt.gca().invert_yaxis()
         plt.tight_layout()
         plt.savefig(f'{method_folder}/feature_importance.png')  # Save Feature Importance plot
-        plt.show()
+        plt.close()
 
     def save_results(self, y_test, y_pred, roc_auc, feature_importances, method_folder):
         # Save classification report
@@ -192,7 +172,7 @@ def main():
     data = data.dropna(subset=['Score_Depressao_T0', 'Score_Depressao_T1', 'Score_Depressao_T3'])
 
     rf_model = RandomForestLongitudinalModel(data)
-    rf_model.run_random_forest(method='weighted')  # You can choose 'smote', 'balanced_rf', or 'weighted'
+    rf_model.run_random_forest(method='weighted')
 
 if __name__ == "__main__":
     main()
