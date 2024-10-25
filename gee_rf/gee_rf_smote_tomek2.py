@@ -1,4 +1,5 @@
 from imblearn.over_sampling import SMOTE
+from imblearn.combine import SMOTETomek
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report, roc_auc_score, roc_curve, accuracy_score, precision_score, recall_score, f1_score
@@ -13,6 +14,7 @@ import statsmodels.api as sm
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 from imblearn.over_sampling import SMOTENC
 from sklearn.compose import make_column_selector
+from imblearn.under_sampling import TomekLinks
 import sys
 
 # Add the parent directory to the system path
@@ -50,6 +52,7 @@ class RandomForestLongitudinalModel:
         categorical_cols = X.select_dtypes(include=['object', 'category']).columns
         for col in categorical_cols:
             X[col] = X[col].astype('category').cat.codes
+            X[col] = X[col].astype('category')
 
         # Variable screening to select top features
         selected_vars, X, y = DataPreparation().variable_screening(X.columns.tolist(), df)
@@ -68,40 +71,40 @@ class RandomForestLongitudinalModel:
             X, y, stratify=y, test_size=0.2, random_state=42
         )
 
-        # Apply simple SMOTE to training data
-        smote = SMOTE(random_state=42)
-        X_train_smote, y_train_smote = smote.fit_resample(X_train, y_train)
+        # Identify categorical columns in your dataset
+        categorical_indices = make_column_selector(dtype_include="category")(X_train)
+        categorical_features = [X_train.columns.get_loc(col) for col in categorical_indices]
 
-        # Weighted Random Forest Model
-        class_weights = class_weight.compute_class_weight(class_weight={0: 1, 1: 30},
-                                                          classes=np.unique(y_train),
-                                                          y=y_train)
-        class_weights_dict = {i: class_weights[i] for i in range(len(class_weights))}
-        rf = RandomForestClassifier(n_estimators=300, random_state=42, class_weight=class_weights_dict)
-        rf.fit(X_train, y_train)
+        # Apply SMOTETomek to balance the training set
+        smote_tomek = SMOTETomek(random_state=42)
+        X_train_balanced, y_train_balanced = smote_tomek.fit_resample(X_train, y_train)
 
-        # Predictions for Original Data
-        y_pred_original = rf.predict(X_test)
-        y_proba_original = rf.predict_proba(X_test)[:, 1]
+        class_weight_options = [{0: 1, 1: w} for w in [5, 10, 20, 30]]
+        thresholds = [0.5, 0.4, 0.3, 0.2]
+        performance_file = 'gee_rf/output/performance_metrics_all_combinations.txt'
+        
+        with open(performance_file, 'w') as f:
+            f.write("Performance Metrics for All Combinations\n")
+            f.write("========================================\n\n")
 
-        # Apply the same model on SMOTE-oversampled data
-        rf_smote = RandomForestClassifier(n_estimators=300, random_state=42, class_weight=class_weights_dict, max_depth=3)
-        rf_smote.fit(X_train_smote, y_train_smote)
+        for cw in class_weight_options:
+            rf = RandomForestClassifier(n_estimators=300, random_state=42, class_weight=cw)
+            rf.fit(X_train_balanced, y_train_balanced)
+            y_proba = rf.predict_proba(X_test)[:, 1]
 
-        # Predictions for SMOTE-oversampled Data
-        y_pred_smote = rf_smote.predict(X_test)
-        y_proba_smote = rf_smote.predict_proba(X_test)[:, 1]
+            for threshold in thresholds:
+                print(f"\nEvaluating for Class Weight {cw} and Threshold {threshold}")
+                metrics = self.evaluate_performance(y_test, y_proba, threshold)
 
-        # Evaluate both models
-        self.evaluate_performance(y_test, y_pred_original, y_proba_original, "Original Data")
-        self.evaluate_performance(y_test, y_pred_smote, y_proba_smote, "SMOTE-Oversampled Data")
+                with open(performance_file, 'a') as f:
+                    f.write(f"Class Weight: {cw}, Threshold: {threshold}\n")
+                    for key, value in metrics.items():
+                        f.write(f"{key}: {value}\n")
+                    f.write("\n")
 
-        # Add Random Forest predictions to the data_long for GEE
         self.data_long['rf_predictions'] = rf.predict(self.data_long[X.columns])
-
-        # Extract the most important features in Random Forest
         self.extract_rf_important_features(rf, X.columns)
-
+        print(f"All performance metrics saved to '{performance_file}'")
         return self.data_long, X.columns  # Return updated data for use in GEE
 
     def extract_rf_important_features(self, model, feature_names):
@@ -118,47 +121,25 @@ class RandomForestLongitudinalModel:
         important_features.to_csv('gee_rf/output/random_forest_important_features.csv')
         print("Important features saved to 'gee_rf/output/random_forest_important_features.csv'")
 
-    def evaluate_performance(self, y_true, y_pred, y_proba, dataset_label):
+    def evaluate_performance(self, y_true, y_proba, dataset_label, threshold=0.3):
         """
         Evaluate and print model performance, including confusion matrix.
         """
-        # Calculate evaluation metrics
-        roc_auc = roc_auc_score(y_true, y_proba)
-        accuracy = accuracy_score(y_true, y_pred)
-        precision = precision_score(y_true, y_pred)
-        recall = recall_score(y_true, y_pred)
-        f1 = f1_score(y_true, y_pred)
+        y_pred = (y_proba >= threshold).astype(int)
 
-        # Print evaluation metrics
-        print(f"\nPerformance Metrics for {dataset_label}:")
-        print(f"ROC AUC Score: {roc_auc:.4f}")
-        print(f"Accuracy: {accuracy:.4f}")
-        print(f"Precision: {precision:.4f}")
-        print(f"Recall: {recall:.4f}")
-        print(f"F1 Score: {f1:.4f}")
-
+        metrics = {
+            "ROC AUC Score": f"{roc_auc_score(y_true, y_proba):.4f}",
+            "Accuracy": f"{accuracy_score(y_true, y_pred):.4f}",
+            "Precision": f"{precision_score(y_true, y_pred):.4f}",
+            "Recall": f"{recall_score(y_true, y_pred):.4f}",
+            "F1 Score": f"{f1_score(y_true, y_pred):.4f}"
+        }
         precision2, recall2, _ = precision_recall_curve(y_true, y_proba)
         pr_auc = auc(recall2, precision2)
-        print(f"Precision-Recall AUC: {pr_auc}")
-
-        # Compute and print confusion matrix
+        metrics["Precision-Recall AUC"] = f"{pr_auc:.4f}"
         cm = confusion_matrix(y_true, y_pred)
-        print(f"\nConfusion Matrix for {dataset_label}:")
-        print(cm)
-
-        # Save the metrics to the output folder
-        if not os.path.exists('gee_rf/output'):
-            os.makedirs('gee_rf/output')
-
-        with open(f'gee_rf/output/performance_metrics_{dataset_label.replace(" ", "_")}.txt', 'w') as f:
-            f.write(f"Performance Metrics for {dataset_label}:\n")
-            f.write(f"ROC AUC Score: {roc_auc:.4f}\n")
-            f.write(f"Accuracy: {accuracy:.4f}\n")
-            f.write(f"Precision: {precision:.4f}\n")
-            f.write(f"Recall: {recall:.4f}\n")
-            f.write(f"F1 Score: {f1:.4f}\n")
-            f.write(f"Precision-Recall AUC: {pr_auc}\n")
-            f.write(f"Confusion Matrix:\n{cm}\n")
+        metrics["Confusion Matrix"] = f"{cm}"
+        return metrics
 
 class GeeModel:
     def __init__(self, data):

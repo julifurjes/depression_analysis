@@ -1,10 +1,10 @@
 Performance Metrics for Original Data:
 ROC AUC Score: 0.9956
-Accuracy: 0.9810
-Precision: 0.9057
+Accuracy: 0.9816
+Precision: 0.9231
 Recall: 0.6575
-F1 Score: 0.7619
-Precision-Recall AUC: 0.9249995535817607
+F1 Score: 0.7680
+Precision-Recall AUC: 0.9271488897650748
 Confusion Matrix:
-[[1497    5]
+[[1498    4]
  [  25   48]]

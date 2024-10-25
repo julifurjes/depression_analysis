@@ -1,4 +1,5 @@
 from imblearn.over_sampling import SMOTE
+from imblearn.combine import SMOTETomek
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report, roc_auc_score, roc_curve, accuracy_score, precision_score, recall_score, f1_score
@@ -13,6 +14,7 @@ import statsmodels.api as sm
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 from imblearn.over_sampling import SMOTENC
 from sklearn.compose import make_column_selector
+from imblearn.under_sampling import TomekLinks
 import sys
 
 # Add the parent directory to the system path
@@ -50,6 +52,7 @@ class RandomForestLongitudinalModel:
         categorical_cols = X.select_dtypes(include=['object', 'category']).columns
         for col in categorical_cols:
             X[col] = X[col].astype('category').cat.codes
+            X[col] = X[col].astype('category')
 
         # Variable screening to select top features
         selected_vars, X, y = DataPreparation().variable_screening(X.columns.tolist(), df)
@@ -68,33 +71,28 @@ class RandomForestLongitudinalModel:
             X, y, stratify=y, test_size=0.2, random_state=42
         )
 
-        # Apply simple SMOTE to training data
-        smote = SMOTE(random_state=42)
-        X_train_smote, y_train_smote = smote.fit_resample(X_train, y_train)
+        # Identify categorical columns in your dataset
+        categorical_indices = make_column_selector(dtype_include="category")(X_train)
+        categorical_features = [X_train.columns.get_loc(col) for col in categorical_indices]
 
-        # Weighted Random Forest Model
-        class_weights = class_weight.compute_class_weight(class_weight={0: 1, 1: 30},
-                                                          classes=np.unique(y_train),
-                                                          y=y_train)
+        # Apply SMOTETomek to balance the training set
+        smote_tomek = SMOTETomek(random_state=42)
+        X_train_balanced, y_train_balanced = smote_tomek.fit_resample(X_train, y_train)
+
+        # Define the class weights for the RandomForestClassifier
+        class_weights = class_weight.compute_class_weight(class_weight={0: 1, 1: 20}, classes=np.unique(y_train), y=y_train)
         class_weights_dict = {i: class_weights[i] for i in range(len(class_weights))}
+
+        # Train the RandomForest model on SMOTE-Tomek processed data
         rf = RandomForestClassifier(n_estimators=300, random_state=42, class_weight=class_weights_dict)
-        rf.fit(X_train, y_train)
+        rf.fit(X_train_balanced, y_train_balanced)
 
         # Predictions for Original Data
         y_pred_original = rf.predict(X_test)
         y_proba_original = rf.predict_proba(X_test)[:, 1]
 
-        # Apply the same model on SMOTE-oversampled data
-        rf_smote = RandomForestClassifier(n_estimators=300, random_state=42, class_weight=class_weights_dict, max_depth=3)
-        rf_smote.fit(X_train_smote, y_train_smote)
-
-        # Predictions for SMOTE-oversampled Data
-        y_pred_smote = rf_smote.predict(X_test)
-        y_proba_smote = rf_smote.predict_proba(X_test)[:, 1]
-
-        # Evaluate both models
-        self.evaluate_performance(y_test, y_pred_original, y_proba_original, "Original Data")
-        self.evaluate_performance(y_test, y_pred_smote, y_proba_smote, "SMOTE-Oversampled Data")
+        # Evaluate the model
+        self.evaluate_performance(y_test, y_proba_original, "SMOTETomek Balanced Data", threshold=0.3)
 
         # Add Random Forest predictions to the data_long for GEE
         self.data_long['rf_predictions'] = rf.predict(self.data_long[X.columns])
@@ -118,10 +116,11 @@ class RandomForestLongitudinalModel:
         important_features.to_csv('gee_rf/output/random_forest_important_features.csv')
         print("Important features saved to 'gee_rf/output/random_forest_important_features.csv'")
 
-    def evaluate_performance(self, y_true, y_pred, y_proba, dataset_label):
+    def evaluate_performance(self, y_true, y_proba, dataset_label, threshold=0.3):
         """
         Evaluate and print model performance, including confusion matrix.
         """
+        y_pred = (y_proba >= threshold).astype(int)
         # Calculate evaluation metrics
         roc_auc = roc_auc_score(y_true, y_proba)
         accuracy = accuracy_score(y_true, y_pred)

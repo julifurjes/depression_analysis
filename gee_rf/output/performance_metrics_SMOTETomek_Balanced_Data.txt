@@ -1,0 +1,10 @@
+Performance Metrics for SMOTETomek Balanced Data:
+ROC AUC Score: 0.9940
+Accuracy: 0.9790
+Precision: 0.7128
+Recall: 0.9178
+F1 Score: 0.8024
+Precision-Recall AUC: 0.909178907119842
+Confusion Matrix:
+[[1475   27]
+ [   6   67]]
