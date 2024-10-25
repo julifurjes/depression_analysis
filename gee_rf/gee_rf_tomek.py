@@ -11,8 +11,7 @@ from sklearn.utils import class_weight
 from sklearn.model_selection import StratifiedKFold
 import statsmodels.api as sm
 from statsmodels.stats.outliers_influence import variance_inflation_factor
-from imblearn.over_sampling import SMOTENC
-from sklearn.compose import make_column_selector
+from imblearn.under_sampling import TomekLinks
 import sys
 
 # Add the parent directory to the system path
@@ -68,9 +67,9 @@ class RandomForestLongitudinalModel:
             X, y, stratify=y, test_size=0.2, random_state=42
         )
 
-        # Apply simple SMOTE to training data
-        smote = SMOTE(random_state=42)
-        X_train_smote, y_train_smote = smote.fit_resample(X_train, y_train)
+# Apply Tomek Links for undersampling the majority class
+        tomek = TomekLinks(sampling_strategy='auto')
+        X_train_tomek, y_train_tomek = tomek.fit_resample(X_train, y_train)
 
         # Weighted Random Forest Model
         class_weights = class_weight.compute_class_weight(class_weight={0: 1, 1: 30},
@@ -84,17 +83,17 @@ class RandomForestLongitudinalModel:
         y_pred_original = rf.predict(X_test)
         y_proba_original = rf.predict_proba(X_test)[:, 1]
 
-        # Apply the same model on SMOTE-oversampled data
-        rf_smote = RandomForestClassifier(n_estimators=300, random_state=42, class_weight=class_weights_dict, max_depth=3)
-        rf_smote.fit(X_train_smote, y_train_smote)
+        # Apply the same model on Tomek-undersampled data
+        rf_tomek = RandomForestClassifier(n_estimators=300, random_state=42, class_weight=class_weights_dict, max_depth=3)
+        rf_tomek.fit(X_train_tomek, y_train_tomek)
 
-        # Predictions for SMOTE-oversampled Data
-        y_pred_smote = rf_smote.predict(X_test)
-        y_proba_smote = rf_smote.predict_proba(X_test)[:, 1]
+        # Predictions for Tomek-undersampled Data
+        y_pred_tomek = rf_tomek.predict(X_test)
+        y_proba_tomek = rf_tomek.predict_proba(X_test)[:, 1]
 
         # Evaluate both models
         self.evaluate_performance(y_test, y_pred_original, y_proba_original, "Original Data")
-        self.evaluate_performance(y_test, y_pred_smote, y_proba_smote, "SMOTE-Oversampled Data")
+        self.evaluate_performance(y_test, y_pred_tomek, y_proba_tomek, "Tomek-Undersampled Data")
 
         # Add Random Forest predictions to the data_long for GEE
         self.data_long['rf_predictions'] = rf.predict(self.data_long[X.columns])
