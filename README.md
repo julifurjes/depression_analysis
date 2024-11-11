@@ -1,6 +1,6 @@
 # **Depression Analysis Using Different Models**
 
-This project explores the analysis of depression data using different models, such as **Mixed-Effects Models** (Multilevel Models) and **XG Boost Model**. The focus is on understanding how demographic factors influence depression scores over time and across subjects, utilizing longitudinal data collected as part of my internship project.
+This project explores the analysis of depression data using different models, such as **Mixed-Effects Models** (Multilevel Models) and **Random Forest Model**. The focus is on understanding how demographic factors influence depression scores over time and across subjects, utilizing longitudinal data collected as part of my internship project.
 
 ## **Table of Contents**
 
@@ -13,14 +13,7 @@ This project explores the analysis of depression data using different models, su
 
 ## **Project Overview**
 
-In this project, I apply these models to a longitudinal dataset to investigate how variables such as gender, education level, and age affect depression scores across different time points. The analysis helps us capture both **within-subject** and **between-subject** variability in depression patterns.
-
-The key steps include:
-- Preparing and cleaning the dataset.
-- Fitting the models for three time points of depression scores (`Score_Depressao_T0`, `Score_Depressao_T1`, and `Score_Depressao_T3`).
-- Analyzing the outcome:
-    - **Mixed Effects Model**: fixed effects (demographic variables) and random effects (subject variability).
-    - **XG Boost**: feature importance of the demographic and subject ID columns.
+In this project, I apply these models to a longitudinal dataset to investigate how different variables can possibly predict depression as a binary outcome.
 
 > **Note**: Due to **GDPR** (General Data Protection Regulation), the dataset used in this project cannot be publicly uploaded. If you'd like to replicate the analysis, you must add the dataset locally.
 
@@ -56,7 +49,7 @@ Once you have the dataset in place and the dependencies installed, you can run t
 
 Example:
 
-```python mixed_effects/script_mixedlm_dem.py```
+```python mixed_effects/mixed_effects.py```
 
 2. Interpreting the Results:
 The results for each time point will be saved in the corresponding output folders as text files or images, containing the model summaries for each depression score.
@@ -64,21 +57,14 @@ The results for each time point will be saved in the corresponding output folder
 Example:
 ```
 mixed_effects/output/
-    mixed_effects_results_score_Score_Depressao_T0.txt
-    mixed_effects_results_score_Score_Depressao_T1.txt
-    mixed_effects_results_score_Score_Depressao_T3.txt
+    mixed_effects_coefficients.csv
+    mixed_effects_results.txt
+    predictive_performance_metrics.txt
 ```
 
 ## **Results**
 
-The analysis provides insights into how demographic factors influence depression over time. The results include:
-
-**Mixed Effects Model:**
-- Fixed Effects: Effects of gender, education, and age on depression scores.
-- Random Effects: Variability in depression scores across subjects.
-
-**XG Boost:**
-- Feature importance: The effect of each variable on the depression scores.
+The analysis provides insights into how different factors influence depression over time.
 
 ## **Acknowledgments**
 

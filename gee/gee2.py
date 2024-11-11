@@ -7,6 +7,7 @@ import numpy as np
 import sys
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 from sklearn.model_selection import train_test_split
+from sklearn.model_selection import GroupShuffleSplit
 
 # Add the parent directory to the system path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -34,9 +35,8 @@ class GeeModel:
         """
         print(f"Running GEE Model")
 
-        # Exclude specific columns
-        exclude_cols = ['ID', 'DepressionScore', 'Pontuacao_Depressao', 'Score_Depressao',
-                        'hads12', 'hads6', 'hads4', 'hads2', 'hads8', 'hads10', 'hads14'] + \
+        # Exclude outcome-related and problematic variables
+        exclude_cols = ['ID', 'Time', 'DepressionStatus', 'DepressionScore', 'Pontuacao_Depressao'] + \
                     [col for col in self.data_long.columns if 'Depress' in col or 'Score' in col]
 
         # Prepare the full dataset X and y
@@ -45,15 +45,23 @@ class GeeModel:
         # Preprocess the training data
         selected_vars, X, y = DataPreparation().variable_screening(fixed_effects, self.data_long)
 
-        # Split the data into training and testing sets
-        X_train_full, X_test_full, y_train, y_test = train_test_split(
-            X, y, test_size=0.3, random_state=42, stratify=y)
+        # Include the 'ID' column for grouping
+        X_with_ID = X.copy()
+        X_with_ID['ID'] = self.data_long['ID'].reset_index(drop=True)
 
-        # Reset indices
-        X_train_full = X_train_full.reset_index(drop=True)
-        X_test_full = X_test_full.reset_index(drop=True)
-        y_train = y_train.reset_index(drop=True)
-        y_test = y_test.reset_index(drop=True)
+        # Use GroupShuffleSplit to split the data based on 'ID'
+        gss = GroupShuffleSplit(n_splits=1, test_size=0.3, random_state=42)
+        train_inds, test_inds = next(gss.split(X_with_ID, y, groups=X_with_ID['ID']))
+
+        # Split the data
+        X_train_full = X_with_ID.iloc[train_inds].reset_index(drop=True)
+        X_test_full = X_with_ID.iloc[test_inds].reset_index(drop=True)
+        y_train = y.iloc[train_inds].reset_index(drop=True)
+        y_test = y.iloc[test_inds].reset_index(drop=True)
+
+        # Remove 'ID' from predictors after splitting (if necessary)
+        X_train_full = X_train_full.drop(columns=['ID'])
+        X_test_full = X_test_full.drop(columns=['ID'])
 
         # Remove multicollinear variables from training data
         vif_data = self.calculate_vif(X_train_full[selected_vars])

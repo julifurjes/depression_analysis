@@ -27,7 +27,9 @@ class MixedEffectsDepressionModel:
         print(f"Running Improved Mixed-Effects Model")
 
         # Prepare the data
-        exclude_cols = ['ID', 'Time', 'DepressionStatus', 'DepressionScore', 'Score_Depressao']
+        # Exclude specific columns
+        exclude_cols = ['ID', 'DepressionScore', 'Pontuacao_Depressao', 'Score_Depressao',
+                        'hads12', 'hads6', 'hads4', 'hads2', 'hads8', 'hads10', 'hads14']
         exclude_cols += [col for col in self.data_long.columns if 'Depress' in col or 'Score' in col]
 
         fixed_effects = [col for col in self.data_long.columns if col not in exclude_cols]
