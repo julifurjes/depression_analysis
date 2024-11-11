@@ -1,6 +1,6 @@
 Predictive Performance Metrics:
-ROC AUC Score: 1.0000
-Accuracy: 0.9987
-Precision: 1.0000
-Recall: 0.9701
-F1 Score: 0.9848
+ROC AUC Score: 0.9348
+Accuracy: 0.9600
+Precision: 0.6667
+Recall: 0.1194
+F1 Score: 0.2025

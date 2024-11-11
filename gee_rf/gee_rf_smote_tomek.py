@@ -15,6 +15,7 @@ from statsmodels.stats.outliers_influence import variance_inflation_factor
 from imblearn.over_sampling import SMOTENC
 from sklearn.compose import make_column_selector
 from imblearn.under_sampling import TomekLinks
+from imblearn.pipeline import Pipeline
 import sys
 
 # Add the parent directory to the system path
@@ -22,10 +23,11 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from functions import DataPreparation
 
 class RandomForestLongitudinalModel:
-    def __init__(self, data):
+    def __init__(self, data, dataset_label):
         self.data = data
         self.subject_col = 'ID'
         self.data_long = DataPreparation().handle_data(self.data)
+        self.dataset_label = dataset_label
         if not os.path.exists('gee_rf/output'):
             os.makedirs('gee_rf/output')  # Ensure output directory exists
 
@@ -39,8 +41,9 @@ class RandomForestLongitudinalModel:
     def preprocess_data(self):
         df = self.data_long.copy()
 
-        # Exclude unnecessary columns
-        exclude_cols = ['ID', 'DepressionScore', 'Pontuacao_Depressao', 'Score_Depressao']
+        # Exclude specific columns
+        exclude_cols = ['ID', 'DepressionScore', 'Pontuacao_Depressao', 'Score_Depressao',
+                        'hads12', 'hads6', 'hads4', 'hads2', 'hads8', 'hads10', 'hads14']
         X = df.drop(columns=exclude_cols + ['DepressionStatus'])
 
         y = df['DepressionStatus']
@@ -71,38 +74,40 @@ class RandomForestLongitudinalModel:
             X, y, stratify=y, test_size=0.2, random_state=42
         )
 
-        # Identify categorical columns in your dataset
-        categorical_indices = make_column_selector(dtype_include="category")(X_train)
-        categorical_features = [X_train.columns.get_loc(col) for col in categorical_indices]
-
         # Apply SMOTETomek to balance the training set
         smote_tomek = SMOTETomek(random_state=42)
         X_train_balanced, y_train_balanced = smote_tomek.fit_resample(X_train, y_train)
 
         # Define the class weights for the RandomForestClassifier
-        class_weights = class_weight.compute_class_weight(class_weight={0: 1, 1: 20}, classes=np.unique(y_train), y=y_train)
+        class_weights = class_weight.compute_class_weight(class_weight={0: 1, 1: 10}, classes=np.unique(y_train), y=y_train)
         class_weights_dict = {i: class_weights[i] for i in range(len(class_weights))}
 
-        # Train the RandomForest model on SMOTE-Tomek processed data
-        rf = RandomForestClassifier(n_estimators=300, random_state=42, class_weight=class_weights_dict)
-        rf.fit(X_train_balanced, y_train_balanced)
+        # Define the pipeline
+        pipeline = Pipeline([
+            ('sampling', SMOTETomek(random_state=42)),
+            ('classification', RandomForestClassifier(n_estimators=300, random_state=42, class_weight=class_weights_dict))
+        ])
+
+        # Fit the pipeline on the training data
+        pipeline.fit(X_train, y_train)
 
         # Predictions for Original Data
-        y_pred_original = rf.predict(X_test)
-        y_proba_original = rf.predict_proba(X_test)[:, 1]
+        y_pred_original = pipeline.predict(X_test)
+        y_proba_original = pipeline.predict_proba(X_test)[:, 1]
 
         # Evaluate the model
-        self.evaluate_performance(y_test, y_proba_original, "SMOTETomek Balanced Data", threshold=0.3)
+        self.evaluate_performance(y_test, y_proba_original, self.dataset_label, threshold=0.2)
 
         # Add Random Forest predictions to the data_long for GEE
-        self.data_long['rf_predictions'] = rf.predict(self.data_long[X.columns])
+        self.data_long['rf_predictions'] = pipeline.predict(self.data_long[X.columns])
 
         # Extract the most important features in Random Forest
-        self.extract_rf_important_features(rf, X.columns)
+        rf_model = pipeline.named_steps['classification']
+        self.extract_rf_important_features(rf_model, X.columns, self.dataset_label)
 
         return self.data_long, X.columns  # Return updated data for use in GEE
 
-    def extract_rf_important_features(self, model, feature_names):
+    def extract_rf_important_features(self, model, feature_names, dataset_label):
         """
         Extract the most important features from the Random Forest model and save them.
         """
@@ -113,10 +118,10 @@ class RandomForestLongitudinalModel:
         print(important_features)
 
         # Save important features to a CSV file
-        important_features.to_csv('gee_rf/output/random_forest_important_features.csv')
-        print("Important features saved to 'gee_rf/output/random_forest_important_features.csv'")
+        important_features.to_csv(f'gee_rf/output/random_forest_important_features_{dataset_label.replace(" ", "_")}.csv')
+        print("Important features saved.")
 
-    def evaluate_performance(self, y_true, y_proba, dataset_label, threshold=0.3):
+    def evaluate_performance(self, y_true, y_proba, dataset_label, threshold=0.2):
         """
         Evaluate and print model performance, including confusion matrix.
         """
@@ -160,10 +165,11 @@ class RandomForestLongitudinalModel:
             f.write(f"Confusion Matrix:\n{cm}\n")
 
 class GeeModel:
-    def __init__(self, data):
+    def __init__(self, data, dataset_label):
         self.data = data
         self.subject_col = 'ID'
         self.data_long = DataPreparation().handle_data(self.data)
+        self.dataset_label = dataset_label
         if not os.path.exists('gee_rf/output'):
             os.makedirs('gee_rf/output')  # Ensure output directory exists
 
@@ -235,7 +241,7 @@ class GeeModel:
 
         # Print and evaluate the model results
         print(result.summary())
-        self.evaluate_predictive_performance(result, X_test, y_test)
+        self.evaluate_predictive_performance(result, X_test, y_test, self.dataset_label)
 
         # Ensure all data is in float64 format
         X = X.astype('float64')
@@ -249,11 +255,11 @@ class GeeModel:
         print('AUC scores: ', auc_scores)
 
         # Extract significant features based on p-value
-        self.extract_significant_gee_features(result)
+        self.extract_significant_gee_features(result, self.dataset_label)
 
         return result
 
-    def extract_significant_gee_features(self, model):
+    def extract_significant_gee_features(self, model, dataset_label):
         """
         Extract statistically significant features from the GEE model based on p-value.
         """
@@ -264,18 +270,18 @@ class GeeModel:
         print(significant_features)
 
         # Save significant features to a CSV file
-        significant_features.to_csv('gee_rf/output/gee_significant_features.csv')
-        print("Significant features saved to 'gee_rf/output/gee_significant_features.csv'")
+        significant_features.to_csv(f'gee_rf/output/gee_significant_features_{dataset_label.replace(" ", "_")}.csv')
+        print("Significant features saved.")
 
-    def evaluate_predictive_performance(self, result, X, y_true):
+    def evaluate_predictive_performance(self, result, X, y_true, dataset_label):
         """
         Evaluate the predictive performance of the GEE model.
         """
         # Get predicted probabilities
         y_pred_prob = result.predict(X)
 
-        # Classify using threshold (e.g., 0.3)
-        threshold = 0.3
+        # Classify using threshold
+        threshold = 0.2
         y_pred_class = (y_pred_prob >= threshold).astype(int)
 
         # Calculate evaluation metrics
@@ -306,14 +312,14 @@ class GeeModel:
         if not os.path.exists('gee_rf/output'):
             os.makedirs('gee_rf/output')
 
-        with open('gee_rf/output/predictive_performance_metrics.txt', 'w') as f:
+        with open(f'gee_rf/output/predictive_performance_metrics_{dataset_label.replace(" ", "_")}.txt', 'w') as f:
             f.write("Predictive Performance Metrics:\n")
             f.write(f"ROC AUC Score: {roc_auc:.4f}\n")
             f.write(f"Accuracy: {accuracy:.4f}\n")
             f.write(f"Precision: {precision:.4f}\n")
             f.write(f"Recall: {recall:.4f}\n")
             f.write(f"F1 Score: {f1:.4f}\n")
-        print("Predictive performance metrics saved to 'gee_rf/output/predictive_performance_metrics.txt'")
+        print("Predictive performance metrics saved.")
 
         # Plot ROC curve
         fpr, tpr, thresholds = roc_curve(y_true, y_pred_prob)
@@ -324,21 +330,23 @@ class GeeModel:
         plt.ylabel('True Positive Rate')
         plt.title('ROC Curve for GEE Model')
         plt.legend(loc='lower right')
-        plt.savefig('gee_rf/output/roc_curve.png')
+        plt.savefig(f'gee_rf/output/roc_curve_{dataset_label.replace(" ", "_")}.png')
         plt.show()
-        print("ROC curve saved to 'gee_rf/output/roc_curve.png'")
+        print("ROC curve saved.")
 
 def main():
     # Load the dataset
     data = pd.read_excel("BD_Rute.xlsx", sheet_name="R")
     filtered_data = data.dropna(subset=['Score_Depressao_T0', 'Score_Depressao_T1', 'Score_Depressao_T3'])
 
+    dataset_label = 'SMOTETomek Balanced Data'
+
     # Step 1: Run Random Forest Model
-    rf_model = RandomForestLongitudinalModel(filtered_data)
+    rf_model = RandomForestLongitudinalModel(filtered_data, dataset_label)
     rf_data_long, rf_features = rf_model.run_random_forest()
 
     # Step 2: Run GEE Model using Random Forest predictions
-    gee_model = GeeModel(filtered_data)
+    gee_model = GeeModel(filtered_data, dataset_label)
     gee_model.run_gee_model(rf_data_long, rf_features)
 
 if __name__ == "__main__":
