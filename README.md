@@ -40,7 +40,7 @@ Example:
 
 ```python gee_rf/gee_rf_smote_tomek_by_timestamps.py```
 
-2. Interpreting the Results:
+## **Interpreting the Results:**
 The results of the model is saved under ```gee_rf/output```. This folder also contains a text file called ```model_and_output_interpreted.md```, where you can read the output in an easily interpretable way. However, you can also find all the raw outputs and visualisations in that folder as well.
 
 ## **Acknowledgments**
