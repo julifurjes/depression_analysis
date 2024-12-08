@@ -1,16 +1,5 @@
 # **Depression Analysis Using Different Models**
 
-This project explores the analysis of depression data using different models, such as **Mixed-Effects Models** (Multilevel Models) and **Random Forest Model**. The focus is on understanding how demographic factors influence depression scores over time and across subjects, utilizing longitudinal data collected as part of my internship project.
-
-## **Table of Contents**
-
-- [Project Overview](#project-overview)
-- [Data Requirements](#data-requirements)
-- [Installation](#installation)
-- [Usage](#usage)
-- [Results](#results)
-- [Acknowledgments](#acknowledgments)
-
 ## **Project Overview**
 
 In this project, I apply these models to a longitudinal dataset to investigate how different variables can possibly predict depression as a binary outcome.
@@ -49,22 +38,10 @@ Once you have the dataset in place and the dependencies installed, you can run t
 
 Example:
 
-```python mixed_effects/mixed_effects.py```
+```python gee_rf/gee_rf_smote_tomek_by_timestamps.py```
 
 2. Interpreting the Results:
-The results for each time point will be saved in the corresponding output folders as text files or images, containing the model summaries for each depression score.
-
-Example:
-```
-mixed_effects/output/
-    mixed_effects_coefficients.csv
-    mixed_effects_results.txt
-    predictive_performance_metrics.txt
-```
-
-## **Results**
-
-The analysis provides insights into how different factors influence depression over time.
+The results of the model is saved under ```gee_rf/output```. This folder also contains a text file called ```model_and_output_interpreted.md```, where you can read the output in an easily interpretable way. However, you can also find all the raw outputs and visualisations in that folder as well.
 
 ## **Acknowledgments**
 
