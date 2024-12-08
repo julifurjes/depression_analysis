@@ -1,6 +1,8 @@
 I used both a machine learning approach (Random Forest) and a statistical model (GEE) to find out which factors are most linked to depression at different time points. The data was balanced (using SMOTETomek) so there wasn’t an unfair advantage in predicting “no depression.”
+
+## Random Forest
     
--   **Random Forest Insights (All Times Combined):**  
+-   **All Times Combined:**  
     When considering all time points together, these were the top predictors:
     
     -   **eq5d5:** EQ-5D dimension related to anxiety/depression
@@ -13,7 +15,8 @@ I used both a machine learning approach (Random Forest) and a statistical model 
     -   **haq13:** A specific HAQ item
     -   **Pontuacao_Ansiedade:** An overall anxiety score
     -   **hads3:** Another HADS item indicating anxiety/depressive symptoms
--   **Random Forest Insights at Each Individual Time Point:**  
+ 
+-   **At Each Individual Time Point:**  
     Running the Random Forest separately at each time (T0, T1, T3) highlighted slightly different key factors:
     
     -   **At T0 (initial):**  
@@ -24,12 +27,16 @@ I used both a machine learning approach (Random Forest) and a statistical model 
         
     -   **At T3 (later follow-up):**  
         Top features included **score_eq5d**, **Pontuacao_Ansiedade**, **eq5d5**, **hads5**, **eq5d6**, **hads1**, **haqScore**, **haq18**, **hads3**, and **Tempo_Baixa_cod**. This again suggests a consistent role for anxiety and overall health quality even later on.
+
+## GEE Model
         
--   **GEE Model Insights (All Times Combined):**  
+-   **All Times Combined:**  
     The GEE model is a more traditional statistical test. It highlighted certain variables as significantly linked to depression status at different times.
     
     -   Across all data, anxiety-related items (like **hads7**, **hads1**, **hads5**), certain HAQ items (e.g., **haqScore**, **haq9**, **haq8**), presence of a mental health condition (**Doenca_Mental**), and certain EQ-5D dimensions (like **eq5d5**, **eq5d7**) came out as important in predicting depression.
 -   **GEE Insights at Specific Times:**
+
+-   **At Each Individual Time Point:**  
     
     -   **At T0:** Significant factors included **hads7**, **haqScore**, **haq9**, **hads1**, **Doenca_Mental**, **score_eq5d**, **haq8**, and **eq5d7**.
     -   **At T1:** Notable variables were **haq13**, **hads1**, and **Pontuacao_Ansiedade**.
