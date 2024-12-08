@@ -34,7 +34,6 @@ I used both a machine learning approach (Random Forest) and a statistical model 
     The GEE model is a more traditional statistical test. It highlighted certain variables as significantly linked to depression status at different times.
     
     -   Across all data, anxiety-related items (like **hads7**, **hads1**, **hads5**), certain HAQ items (e.g., **haqScore**, **haq9**, **haq8**), presence of a mental health condition (**Doenca_Mental**), and certain EQ-5D dimensions (like **eq5d5**, **eq5d7**) came out as important in predicting depression.
--   **GEE Insights at Specific Times:**
 
 -   **At Each Individual Time Point:**  
     
