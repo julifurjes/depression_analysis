@@ -1,4 +1,3 @@
-
 I used both a machine learning approach (Random Forest) and a statistical model (GEE) to find out which factors are most linked to depression at different time points. The data was balanced (using SMOTETomek) so there wasn’t an unfair advantage in predicting “no depression.”
     
 -   **Random Forest Insights (All Times Combined):**  
@@ -18,13 +17,13 @@ I used both a machine learning approach (Random Forest) and a statistical model 
     Running the Random Forest separately at each time (T0, T1, T3) highlighted slightly different key factors:
     
     -   **At T0 (initial):**  
-        Key predictors included **hads7 (anxiety)**, **score_eq5d (overall health)**, **eq5d7 (quality-of-life dimension)**, **Pont_Ansiedade (anxiety score)**, **hads5 (anxiety)**, **eq5d5 (anxiety/depression)**, **hads1 (tension/anxiety)**, **haqScore (functional health)**, **haq13 (HAQ item)**, and **haq20 (another HAQ item)**.
+        Key predictors included **hads7**, **score_eq5d**, **eq5d7**, **Pont_Ansiedade**, **hads5**, **eq5d5**, **hads1**, **haqScore**, **haq13**, and **haq20**.
         
     -   **At T1 (first follow-up):**  
         Important factors were **score_eq5d**, **Pontuacao_Ansiedade**, **eq5d5**, **haqScore**, **hads1**, **haq13**, **eq5d7**, **hads5**, **hads3**, and **haq9**—again showing a blend of anxiety measures and quality-of-life assessments.
         
     -   **At T3 (later follow-up):**  
-        Top features included **score_eq5d**, **Pontuacao_Ansiedade**, **eq5d5**, **hads5**, **eq5d6 (an EQ-5D dimension)**, **hads1**, **haqScore**, **haq18 (HAQ item)**, **hads3**, and **Tempo_Baixa_cod (a time-related variable)**. This again suggests a consistent role for anxiety and overall health quality even later on.
+        Top features included **score_eq5d**, **Pontuacao_Ansiedade**, **eq5d5**, **hads5**, **eq5d6**, **hads1**, **haqScore**, **haq18**, **hads3**, and **Tempo_Baixa_cod**. This again suggests a consistent role for anxiety and overall health quality even later on.
         
 -   **GEE Model Insights (All Times Combined):**  
     The GEE model is a more traditional statistical test. It highlighted certain variables as significantly linked to depression status at different times.
