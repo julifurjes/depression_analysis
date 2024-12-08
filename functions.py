@@ -69,7 +69,6 @@ class DataPreparation():
 
     def generate_smote_tomek(self):
         categorical_features = ['SEXO', 'Estado_Civil', 'Escolaridade', 'NUTII']
-        print(self.data.columns)
         categorical_indices = [self.data.columns.get_loc(col) for col in categorical_features]  # Get column indices
 
         # Define the feature matrix (X) and target variable (y)
@@ -227,6 +226,10 @@ class DataPreparation():
     def standardize_variables(self, X):
         scaler = StandardScaler()
         numeric_cols = X.select_dtypes(include=[np.number]).columns
+
+        # Exclude the 'Time' column from standardization
+        numeric_cols = numeric_cols.drop('Time', errors='ignore')
+
         X[numeric_cols] = scaler.fit_transform(X[numeric_cols])
         return X
 
@@ -240,7 +243,12 @@ class DataPreparation():
         # Use mutual information for feature selection
         selector = SelectKBest(mutual_info_classif, k=20)
         selector.fit(X, y)
-        selected_vars = X.columns[selector.get_support()]
+        selected_vars = list(X.columns[selector.get_support()])
+
+        # Manually add 'Time' to selected_vars if it's not already included
+        if 'Time' in X.columns and 'Time' not in selected_vars:
+            selected_vars.append('Time')
+
         X_selected = X[selected_vars]
         
         return selected_vars, X_selected, y
