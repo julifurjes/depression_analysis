@@ -34,10 +34,6 @@ cd depression-analysis
 
 Once you have the dataset in place and the dependencies installed, you can run the analysis as follows:
 
-1. Running the scripts:
-
-Example:
-
 ```python gee_rf/gee_rf_smote_tomek_by_timestamps.py```
 
 ## **Interpreting the Results**
