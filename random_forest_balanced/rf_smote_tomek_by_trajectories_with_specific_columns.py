@@ -1,24 +1,16 @@
 from imblearn.combine import SMOTETomek
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import (classification_report, roc_auc_score, roc_curve, accuracy_score, 
+from sklearn.metrics import (roc_auc_score, roc_curve, accuracy_score, 
                              precision_score, recall_score, f1_score, confusion_matrix)
 import matplotlib.pyplot as plt
 import os
 import pandas as pd
 import numpy as np
 from sklearn.utils import class_weight
-from sklearn.model_selection import StratifiedKFold
-import statsmodels.api as sm
 from statsmodels.stats.outliers_influence import variance_inflation_factor
-from sklearn.compose import make_column_selector
 from imblearn.pipeline import Pipeline
 import seaborn as sns
-import sys
-
-# Add the parent directory to the system path
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from functions import DataPreparation
 
 class RandomForestLongitudinalModel:
     def __init__(self, data, dataset_label):
@@ -40,9 +32,6 @@ class RandomForestLongitudinalModel:
         ageing = ["Idade_T0", "Idade_T1", "Idade_T2", "Idade_T3"]
 
         # Multimorbidity
-        # Missing values:
-        # T1: Doenca_Pulmonar, Doenca_Cardiaca, Digestiva, Acido_Urico
-        # T2: Doenca_Pulmonar, Acido_Urico
         chronic_conditions = {
             "T0": ["Hipertensao_T0", "Diabetes_T0", "Colesterol_T0", "Doenca_Pulmonar_T0", "Doenca_Cardiaca_T0", "Digestiva_T0", "Neurologica_T0", "Alergia_T0", "Acido_urico_T0"],
             "T1": ["Hipertensao_T1", "Diabetes_T1", "Colesterol_T1", "Neurologica_T1", "Alergias_T1"],
@@ -57,37 +46,26 @@ class RandomForestLongitudinalModel:
         multimorbidity = ['Multimorbidity_T0', 'Multimorbidity_T1', 'Multimorbidity_T2', 'Multimorbidity_T3']
 
         # Chronic Diseases
-        # Missing values:
-        # Lombalgia_T0, Lombalgia_T3
-        # OA_T1, OA_T2, OA_T3
-        # OP_T1
         rheumatic_diseases = ["AR_T0", "EA_T0", "AP_T0", "OA_T0", "OP_T0", "Gota_T0", "Polimialgia_T0", 
-        "Les_T0", "Fibromialgia_T0", "AR_T1", "EA_T1", "AP_T1", 
-        "Gota_T1", "Polimialgia_T1", "LES_T1", "Fibromialgia_T1", 
-        "Lombalgia_T1", "AR_T2", "EA_T2", "AP_T2", "OP_T2", "Gota_T2", 
-        "Polimialgia_T2", "LES_T2", "Fibromialgia_T2", "Lombalgia_T2", "AR_T3", 
-        "EA_T3", "AP_T3", "OP_T3", "Gota_T3", "Polimialgia_T3", "LES_T3", "Fibromialgia_T3"]
+            "Les_T0", "Fibromialgia_T0", "AR_T1", "EA_T1", "AP_T1", 
+            "Gota_T1", "Polimialgia_T1", "LES_T1", "Fibromialgia_T1", 
+            "Lombalgia_T1", "AR_T2", "EA_T2", "AP_T2", "OP_T2", "Gota_T2", 
+            "Polimialgia_T2", "LES_T2", "Fibromialgia_T2", "Lombalgia_T2", "AR_T3", 
+            "EA_T3", "AP_T3", "OP_T3", "Gota_T3", "Polimialgia_T3", "LES_T3", "Fibromialgia_T3"]
 
         # Lifestyles
         smoking_habits = ['Cod_Fumador_T0', 'Cod_Fumador_T1', 'Cod_Fumador_T2', 'Cod_Fumador_T3']
         alcohol_habits = ['Cod_Alcool_T0', 'Cod_Alcool_T1', 'Cod_Alcool_T2', 'Cod_Alcool_T3']
         exercise_freq = ['Exercicio_Regular_T0', 'Exercicio_Regular_T1', 'Exercicio_Regular_T2', 'Exercicio_Regular_T3']
         sleep_hours = ['Num_Horas_Dorme_Por_Dia_T1', 'Num_Horas_Dorme_Por_Dia_T2', 'Num_Horas_Dorme_Por_Dia_T3']
-        #dietary_behaviour = 0
+        dietary_behaviour = ['DM3_T2', 'DM4_T2', 'DM5_T2', 'DM10_T2', 'DM6_T2']
 
         # SES
-        # Missing values:
-        # Education for T1, T2, T3
-        # Employment for T3
-        #income = 0
         education = ['Escolaridade']
-        employment = ['Sit_Prof_T0', 'Sit_Prof_T1', 'Sit_Prof_T2']
+        employment = ['Sit_Prof_T0', 'Sit_Prof_T1', 'Sit_Prof_T2',  'Sit_Prof_T2']
 
         # Social support
-        # Missing values:
-        # Assistance values for T2
         household_members = ['Num_Pessoas_Agregado_T0', 'Num_Pessoas_Agregado_T2', 'Num_Pessoas_Agregado_T3']
-        #children_household_members = 0
         assistance = ['Assist_Domiciliaria_T0', 'Familiar_Prest_Assist_Dom_T0', 'Pessoa_Inst_Prest_Assist_Dom_T0',
                       'Assist_Domiciliaria_T1', 'Familiar_Prest_Assist_Dom_T1', 'Pessoa_Inst_Prest_Assist_Dom_T1', 'Outro_Prest_Assist_Dom_T1',
                       'Assist_Domiciliaria_T3', 'Familiar_Prest_Assist_Dom_T3', 'Pessoa_Inst_Prest_Assist_Dom_T3', 'Outro_Prest_Assist_Dom_T3']
@@ -96,7 +74,7 @@ class RandomForestLongitudinalModel:
 
         # Merge all categories into selected_vars
         selected_vars = (ageing + multimorbidity + rheumatic_diseases + 
-                        smoking_habits + alcohol_habits + exercise_freq + sleep_hours + 
+                        smoking_habits + alcohol_habits + exercise_freq + sleep_hours + dietary_behaviour +
                         education + employment + household_members + assistance)
         
         # List of variables to ensure are included
@@ -159,9 +137,6 @@ class RandomForestLongitudinalModel:
         if 'DepressivePath' in X.columns:
             X = X.drop(columns=['DepressivePath'])
 
-        #vif_data = self.calculate_vif(X)
-        #print('Random Forest VIF:', vif_data)
-
         # Split the data using the path groups (y) for stratification
         X_train, X_test, y_train, y_test = train_test_split(
             X, y, test_size=0.2, stratify=y, random_state=42
@@ -194,10 +169,6 @@ class RandomForestLongitudinalModel:
 
         data_bal['DepressivePathGroup'] = data_bal['DepressivePath'].map(path_to_group).fillna(0).astype(int)
 
-        # Update train/test splits with the balanced set (only train part is balanced)
-        # Note: y_train_bal and X_train_bal already balanced
-        # y_test unchanged; X_test unchanged
-
         # Define class weights for the multinomial scenario
         unique_classes = np.unique(np.concatenate((y_train, y_test)))
         class_weights = class_weight.compute_class_weight(
@@ -212,7 +183,6 @@ class RandomForestLongitudinalModel:
 
         pipeline.fit(X_train_bal, y_train_bal)
 
-
         # Feature columns and full prediction
         feature_columns = X.columns
         X_full = self.data[feature_columns].fillna(0)
@@ -220,7 +190,7 @@ class RandomForestLongitudinalModel:
         self.data['rf_predictions'] = pipeline.predict(X_full)
 
         # Extract important features (top 10)
-        rf_model = pipeline.named_steps['classification']
+        #rf_model = pipeline.named_steps['classification']
         #self.extract_rf_important_features(rf_model, feature_columns, self.dataset_label)
 
         # Run separate models for each depressive path group
@@ -354,6 +324,138 @@ class RandomForestLongitudinalModel:
         }
         self.data['DepressivePathGroup'] = self.data['DepressivePath'].map(path_to_group).fillna(0).astype(int)
 
+    def create_wave_map(self):
+        variable_wave_map = {
+            "Ageing": {
+                0: ["Idade_T0"],
+                1: ["Idade_T1"],
+                2: ["Idade_T2"],
+                3: ["Idade_T3"]
+            },
+            "Multimorbidity": {
+                0: "Multimorbidity_T0",
+                1: "Multimorbidity_T1",
+                2: "Multimorbidity_T2",
+                3: "Multimorbidity_T3"
+            },
+            "Rheumatic Diseases": {
+                0: ["AR_T0", "EA_T0", "AP_T0", "OA_T0", "OP_T0", "Gota_T0", "Polimialgia_T0", "Les_T0", "Fibromialgia_T0"],
+                1: ["AR_T1", "EA_T1", "AP_T1", "Gota_T1", "Polimialgia_T1", "LES_T1", "Fibromialgia_T1", "Lombalgia_T1"],
+                2: ["AR_T2", "EA_T2", "AP_T2", "OP_T2", "Gota_T2", "Polimialgia_T2", "LES_T2", "Fibromialgia_T2", "Lombalgia_T2"],
+                3: ["AR_T3", "EA_T3", "AP_T3", "OP_T3", "Gota_T3", "Polimialgia_T3", "LES_T3", "Fibromialgia_T3"]
+            },
+            "Smoking": {
+                0: ["Cod_Fumador_T0"],
+                1: ["Cod_Fumador_T1"],
+                2: ["Cod_Fumador_T2"],
+                3: ["Cod_Fumador_T3"]
+            },
+            "Alcohol Consumption": {
+                0: ["Cod_Alcool_T0"],
+                1: ["Cod_Alcool_T1"],
+                2: ["Cod_Alcool_T2"],
+                3: ["Cod_Alcool_T3"]
+            },
+            "Regular Exercise": {
+                0: ["Exercicio_Regular_T0"],
+                1: ["Exercicio_Regular_T1"],
+                2: ["Exercicio_Regular_T2"],
+                3: ["Exercicio_Regular_T3"]
+            },
+            "Hours of Sleep per Day": {
+                1: ["Num_Horas_Dorme_Por_Dia_T1"],
+                2: ["Num_Horas_Dorme_Por_Dia_T2"],
+                3: ["Num_Horas_Dorme_Por_Dia_T3"]
+            },
+            "Diet": {
+                2: ["DM3_T2", "DM4_T2", "DM5_T2", "DM10_T2", "DM6_T2"]
+            },
+            "Education": {
+                0: ["Sit_Prof_T0"]
+            },
+            "Profession": {
+                0: ["Escolaridade"],
+                1: ["Sit_Prof_T1"],
+                2: ["Sit_Prof_T2"],
+                3: ["Sit_Prof_T2"]
+            },
+            "Social Support": {
+                0: ["Num_Pessoas_Agregado_T0", "Assist_Domiciliaria_T0", "Familiar_Prest_Assist_Dom_T0",
+                    "Pessoa_Inst_Prest_Assist_Dom_T0"],
+                1: ["Assist_Domiciliaria_T1", "Familiar_Prest_Assist_Dom_T1", "Pessoa_Inst_Prest_Assist_Dom_T1",
+                    "Outro_Prest_Assist_Dom_T1"],
+                2: ["Num_Pessoas_Agregado_T2"],
+                3: ["Num_Pessoas_Agregado_T3", "Assist_Domiciliaria_T3", "Familiar_Prest_Assist_Dom_T3",
+                    "Pessoa_Inst_Prest_Assist_Dom_T3", "Outro_Prest_Assist_Dom_T3"]
+            }
+        }
+
+        return variable_wave_map
+    
+    def visualise(self, df):
+        variable_wave_map = self.create_wave_map()
+        group_col = 'DepressivePathGroup'
+        out_dir = 'random_forest_balanced/output/variable_plots'
+        if not os.path.exists(out_dir):
+            os.makedirs(out_dir)
+        
+        # Map for categorical wave labels
+        wave_label_map = {0: "T0", 1: "T1", 2: "T2", 3: "T3"}
+
+        for var_name, wave_dict in variable_wave_map.items():
+            print(f"Processing category: {var_name}")
+            plot_df_list = []
+
+            for w, col_names in wave_dict.items():
+                # Ensure col_names is always a list
+                if not isinstance(col_names, list):
+                    col_names = [col_names]
+
+                for col_name in col_names:
+                    if col_name not in df.columns:
+                        print(f"Missing column: {col_name} in category: {var_name}")
+                        continue
+                    
+                    # Subset only rows that are not NaN
+                    subset = df[[group_col, col_name]].dropna(subset=[col_name])
+                    if subset.empty:
+                        print(f"No data for column: {col_name} in category: {var_name}")
+                        continue
+                    
+                    # Compute the mean by group
+                    mean_by_group = subset.groupby(group_col)[col_name].mean().reset_index()
+                    mean_by_group['wave'] = wave_label_map[w]  # Map wave to categorical label
+                    mean_by_group['variable'] = var_name
+                    mean_by_group.rename(columns={col_name: "value"}, inplace=True)
+                    plot_df_list.append(mean_by_group)
+
+            if not plot_df_list:
+                print(f"No data to plot for category: {var_name}")
+                continue
+
+            long_df = pd.concat(plot_df_list, ignore_index=True)
+            
+            # Plot
+            plt.figure(figsize=(6, 4))
+            sns.lineplot(
+                data=long_df,
+                x='wave',
+                y='value',
+                hue=group_col,
+                marker='o',
+                palette='Dark2'
+            )
+            plt.title(f'{var_name} by Wave and Group')
+            plt.xlabel('Wave')
+            plt.ylabel(f'{var_name} (mean or proportion)')
+            plt.legend(title=f'{group_col} (1,2,3)')
+            
+            plt.tight_layout()
+            out_path = os.path.join(out_dir, f'longitudinal_{var_name}.png')
+            plt.savefig(out_path, dpi=120)
+            plt.close()
+
+
 def main():
     # Load the dataset
     data = pd.read_excel("BD_Rute.xlsx", sheet_name="R")
@@ -364,6 +466,8 @@ def main():
     # Run Random Forest Model with Y as DepressivePathGroup
     rf_model = RandomForestLongitudinalModel(filtered_data, dataset_label)
     rf_model.run_random_forest()
+
+    rf_model.visualise(rf_model.data)
 
 if __name__ == "__main__":
     main()
