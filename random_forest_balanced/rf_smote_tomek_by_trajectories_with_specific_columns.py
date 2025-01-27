@@ -19,6 +19,23 @@ class RandomForestLongitudinalModel:
         self.dataset_label = dataset_label
         if not os.path.exists('random_forest_balanced/output'):
             os.makedirs('random_forest_balanced/output')  # Ensure output directory exists
+        if not os.path.exists('random_forest_balanced/variable_plots'):
+            os.makedirs('random_forest_balanced/variable_plots')  # Ensure variable_plots directory exists
+        if not os.path.exists('random_forest_balanced/variable_tables'):
+            os.makedirs('random_forest_balanced/variable_tables')  # Ensure variable_tables directory exists
+        if not os.path.exists('random_forest_balanced/frequency_tables'):
+            os.makedirs('random_forest_balanced/frequency_tables')  # Ensure frequency_tables directory exists
+
+    def generate_frequency_tables(self, df, group_col='DepressivePathGroup'):
+        # Socio-demographic columns
+        socio_demo_cols = ["Idade_T0", "Idade_T1", "Idade_T2", "Idade_T3", "Escolaridade", "Sit_Prof_T0", "Sit_Prof_T1", "Sit_Prof_T2"]
+        frequency_tables = {}
+
+        for col in socio_demo_cols:
+            table = df.groupby(group_col)[col].value_counts(normalize=True).unstack(fill_value=0)
+            frequency_tables[col] = table
+
+        return frequency_tables
 
     def calculate_vif(self, X):
         X = X.assign(constant=1)  # Add constant term for VIF calculation
@@ -62,7 +79,7 @@ class RandomForestLongitudinalModel:
 
         # SES
         education = ['Escolaridade']
-        employment = ['Sit_Prof_T0', 'Sit_Prof_T1', 'Sit_Prof_T2',  'Sit_Prof_T2']
+        employment = ['Sit_Prof_T0', 'Sit_Prof_T1', 'Sit_Prof_T2']
 
         # Social support
         household_members = ['Num_Pessoas_Agregado_T0', 'Num_Pessoas_Agregado_T2', 'Num_Pessoas_Agregado_T3']
@@ -87,6 +104,31 @@ class RandomForestLongitudinalModel:
     
         return selected_vars, df
 
+    def generate_variable_tables(data, variable_wave_map, group_col='DepressivePathGroup', output_dir='output/variable_tables'):
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+
+        wave_label_map = {0: "T0", 1: "T1", 2: "T2", 3: "T3"}  # Mapping waves to labels
+
+        for var_name, wave_dict in variable_wave_map.items():
+            tables = []
+            for wave, col_names in wave_dict.items():
+                if not isinstance(col_names, list):
+                    col_names = [col_names]
+
+                for col_name in col_names:
+                    if col_name not in data.columns:
+                        continue  # Skip missing columns
+                    
+                    # Calculate mean by group
+                    mean_table = data.groupby(group_col)[col_name].mean().reset_index()
+                    mean_table['Wave'] = wave_label_map[wave]
+                    mean_table['Variable'] = var_name
+                    tables.append(mean_table)
+
+            if tables:
+                final_table = pd.concat(tables, ignore_index=True)
+                final_table.to_csv(os.path.join(output_dir, f'{var_name}_table.csv'), index=False)
 
     def preprocess_data(self):
         df = self.data.copy()
@@ -145,6 +187,15 @@ class RandomForestLongitudinalModel:
         # Apply SMOTETomek on the training data
         smote_tomek = SMOTETomek(random_state=42)
         X_train_bal, y_train_bal = smote_tomek.fit_resample(X_train, y_train)
+
+        # Generate frequency tables for socio-demographic variables
+        frequency_tables = self.generate_frequency_tables(self.data)
+        
+        # Save frequency tables to CSV
+        for col, table in frequency_tables.items():
+            print("Frequency Table for ", col)
+            print(table)
+            table.to_csv(f'random_forest_balanced/output/frequency_tables/frequency_table_{col}.csv')
 
         # Reconstruct a balanced dataset (train + test) for evaluation and for downstream use
         data_bal = pd.concat([
@@ -396,8 +447,12 @@ class RandomForestLongitudinalModel:
         variable_wave_map = self.create_wave_map()
         group_col = 'DepressivePathGroup'
         out_dir = 'random_forest_balanced/output/variable_plots'
+        table_out_dir = 'random_forest_balanced/output/variable_tables'
+        
         if not os.path.exists(out_dir):
             os.makedirs(out_dir)
+        if not os.path.exists(table_out_dir):
+            os.makedirs(table_out_dir)
         
         # Map for categorical wave labels
         wave_label_map = {0: "T0", 1: "T1", 2: "T2", 3: "T3"}
@@ -405,6 +460,7 @@ class RandomForestLongitudinalModel:
         for var_name, wave_dict in variable_wave_map.items():
             print(f"Processing category: {var_name}")
             plot_df_list = []
+            table_df_list = []  # To collect data for saving tables
 
             for w, col_names in wave_dict.items():
                 # Ensure col_names is always a list
@@ -428,11 +484,13 @@ class RandomForestLongitudinalModel:
                     mean_by_group['variable'] = var_name
                     mean_by_group.rename(columns={col_name: "value"}, inplace=True)
                     plot_df_list.append(mean_by_group)
+                    table_df_list.append(mean_by_group)  # Add to table data
 
             if not plot_df_list:
                 print(f"No data to plot for category: {var_name}")
                 continue
 
+            # Combine data for plotting
             long_df = pd.concat(plot_df_list, ignore_index=True)
             
             # Plot
@@ -454,6 +512,13 @@ class RandomForestLongitudinalModel:
             out_path = os.path.join(out_dir, f'longitudinal_{var_name}.png')
             plt.savefig(out_path, dpi=120)
             plt.close()
+
+            # Save tables
+            if table_df_list:
+                final_table = pd.concat(table_df_list, ignore_index=True)
+                table_path = os.path.join(table_out_dir, f'{var_name}_table.csv')
+                final_table.to_csv(table_path, index=False)
+                print(f"Saved table for {var_name} at {table_path}")
 
 
 def main():
